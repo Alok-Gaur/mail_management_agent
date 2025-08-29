@@ -1,0 +1,12 @@
+[project]
+name = "mail-management-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aioredis>=2.0.1",
+    "asyncio>=4.0.0",
+    "fastapi>=0.116.1",
+    "uvicorn>=0.35.0",
+]
