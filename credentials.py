@@ -1,4 +1,6 @@
 from os import path
+import json
+import util
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -7,6 +9,8 @@ from googleapiclient.discovery import build
 SCOPES = ['https://mail.google.com/']
 TOPIC_NAME = "projects/project-use-a/topics/new_mail"
 
+
+# Get Google Api Credentials
 def get_google_credentials():
     creds = None
     if path.exists("token.json"):
@@ -24,15 +28,20 @@ def get_google_credentials():
     return creds
 
 
+# start watch for new mail
 def start_watch(creds):
-    services =  build("gmail", "v1", credentials=creds)
+    try:
+        services =  build("gmail", "v1", credentials=creds)
 
-    request_body = {
-        'labelIds':['INBOX'],
-        'topicName': TOPIC_NAME,
-    }
+        request_body = {
+            'labelIds':['INBOX'],
+            'topicName': TOPIC_NAME,
+        }
 
-    response = services.users().watch(userId='me', body=request_body).execute()
+        response = services.users().watch(userId='me', body=request_body).execute()
+
+    except Exception as e:
+        print(e)
     print("watch started: ", response)
 
 
@@ -58,31 +67,33 @@ def get_spam(creds):
 
 def mail_by_id(creds, id=17624):
     services = build("gmail", "v1", credentials=creds)
-    
+    historyId = util.get_start_history()
     results = services.users().history().list(
         userId='me',
-        startHistoryId=id,
-        # historyTypes=['messageAdded']
+        startHistoryId=historyId,
+        historyTypes=['messageAdded']
     ).execute()
 
-    history_records = results.get('history', [])
+    history_records = results.get('history')
     message_ids = []
-    print(history_records)
     for record in history_records:
-        for msg in record.get('messageAdded', []):
-            message_ids.append(msg['message']['id'])
+        for msg in record.get('messagesAdded', []):
+            message_id = msg['message']['id']
+            message_ids.append(message_id)
+            print(get_message_details(services, message_id))
+            print("="*30, "\n\n")
     
-    print("New Message Ids: ", message_ids)
     return message_ids
 
-def get_message_details(creds, message_id):
-    service = build("gmail", "v1", credentials=creds)
-    message = service.users().messages().get(userId='me', id=message_id, format='full').execute()
+def get_message_details(services, message_id=17733):
+    message = services.users().messages().get(userId='me', id=message_id, format='full').execute()
     print("Subject:", next(header['value'] for header in message['payload']['headers'] if header['name'] == 'Subject'))
     return message
 
 if __name__ == "__main__":
-    message_ids = mail_by_id()
+    creds = get_google_credentials()
+    message_ids = mail_by_id(creds)
+    # print(get_message_details(creds))
 
-    # start_watch()
+    # start_watch(creds)
     # print("mail is: ", get_message_details('16185194184222352'))
