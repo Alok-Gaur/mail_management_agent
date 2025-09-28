@@ -9,7 +9,12 @@ wheels/
 # Virtual environments
 .venv
 
+# Project Secrets
+.env
 
 # client secrets
 credentials.json
 token.json
+
+# Databases
+*.sqlite3
