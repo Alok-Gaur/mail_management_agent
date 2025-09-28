@@ -1,6 +1,5 @@
-def main():
-    print("Hello from mail-management-agent!")
+from fastapi import FastAPI
+import routers.endpoints as endpoints
+app = FastAPI()
 
-
-if __name__ == "__main__":
-    main()
+app.include_router(endpoints.router)
