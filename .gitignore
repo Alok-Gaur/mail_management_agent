@@ -15,6 +15,11 @@ wheels/
 # client secrets
 credentials.json
 token.json
+client_secret_for_web_app_login_setup.json
 
 # Databases
 *.sqlite3
+
+
+# Testing Files
+test.py

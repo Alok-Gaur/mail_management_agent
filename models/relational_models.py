@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Numeric, CheckConstraint, Boolean, Date, Time, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from db.db_postgres import Base
+from db.relational_db import Base
 
 
 
@@ -37,8 +37,23 @@ class User(Base):
 
     expenses = relationship("Expense", back_populates="user", cascade="all, delete-orphan")
     incomes = relationship("Income", back_populates="user", cascade="all, delete-orphan")
-    events = relationship("Income", back_populates="user", cascade="all, delete-orphan")
+    events = relationship("Event", back_populates="user", cascade="all, delete-orphan")
     setting = relationship("Setting", back_populates="user", cascade="delete-orphan")
+    user_secret = relationship("User_Secret", back_populates="user", cascade="delete-orphan")
+
+
+class User_Secret(Base):
+    __tablename__ = "user_secret"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_secret = Column(String, nullable=True)
+    client_token = Column(String, nullable=True)
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now())
+
+    user = relationship("User", back_populates="user_secret")
+
 
 class Setting(Base):
     __tablename__ = "setting"

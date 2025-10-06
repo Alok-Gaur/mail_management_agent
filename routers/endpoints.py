@@ -1,5 +1,5 @@
 from fastapi import APIRouter, status, Request
-import credentials
+import utils.credentials as credentials
 import json
 router = APIRouter(tags=['Web Hooks'])
 
