@@ -2,8 +2,9 @@ from sqlalchemy import Column, ForeignKey, Integer, String, Numeric, CheckConstr
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from db.relational_db import Base
+from datetime import datetime, timedelta
 
-
+# Base = declarative_base()
 
 """
 Class Format:
@@ -25,34 +26,52 @@ Class Format:
 
 
 class User(Base):
-    __table__ = "user"
+    __tablename__ = "user_table"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_name = Column(String(50), nullable=False, unique=True)
+    username = Column(String(50), nullable=False, unique=True)
+    fname = Column(String(50), nullable=True)
+    lname = Column(String(50), nullable=True)
     email = Column(String(100), nullable=False, unique=True)
-    email_credential = Column(String, nullable=True)
-    email_token = Column(String, nullable=True)
+    password = Column(String(255),nullable=False)
     created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     expenses = relationship("Expense", back_populates="user", cascade="all, delete-orphan")
     incomes = relationship("Income", back_populates="user", cascade="all, delete-orphan")
     events = relationship("Event", back_populates="user", cascade="all, delete-orphan")
-    setting = relationship("Setting", back_populates="user", cascade="delete-orphan")
-    user_secret = relationship("User_Secret", back_populates="user", cascade="delete-orphan")
+    setting = relationship("Setting", back_populates="user", cascade="all, delete-orphan")
+    user_secret = relationship("UserSecret", back_populates="user", cascade="all, delete-orphan")
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
 
 
-class User_Secret(Base):
+class RefreshToken(Base):
+    __tablename__ = "refresh_token"
+
+    id = Column(Integer, primary_key= True, index=True)
+    token = Column(String, nullable=False)
+    expires_at = Column(DateTime, default=lambda: datetime.utcnow() + timedelta(days=7))
+    revoked = Column(Boolean, default=False)
+    user_id = Column(Integer, ForeignKey("user_table.id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="refresh_tokens", uselist=False)
+
+
+class UserSecret(Base):
     __tablename__ = "user_secret"
 
     id = Column(Integer, primary_key=True, index=True)
     client_secret = Column(String, nullable=True)
     client_token = Column(String, nullable=True)
-    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    refresh_token = Column(String, nullable=True)
+    revoked = Column(Boolean, default=False)
+    user_id = Column(Integer, ForeignKey("user_table.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    user = relationship("User", back_populates="user_secret")
+    user = relationship("User", back_populates="user_secret", uselist=False)
 
 
 class Setting(Base):
@@ -64,11 +83,11 @@ class Setting(Base):
     create_draft = Column(Boolean, default=True)
     schedule_event = Column(Boolean, default=False)
     generate_report = Column(Boolean, default=False)
-    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("user_table.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    user = relationship("User", back_populates="setting")
+    user = relationship("User", back_populates="setting", uselist=False)
 
 
 
@@ -84,11 +103,11 @@ class Expense(Base):
     gst_category = Column(Integer, nullable=True)
     total = Column(Numeric(10, 2), nullable=False, default=0)
     mail_id = Column(String, nullable=False)
-    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("user_table.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    user = relationship("User", back_populates="expenses") 
+    user = relationship("User", back_populates="expenses")
 
 
 
@@ -104,16 +123,16 @@ class Income(Base):
     gst_category = Column(Integer, nullable=True)
     total = Column(Numeric(10, 2), nullable=False, default=0)
     mail_id = Column(String, nullable=False)
-    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("user_table.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    user = relationship("User", back_populates="incomes") 
+    user = relationship("User", back_populates="incomes")
 
 
 # Maintain Google Calendar
 class Event(Base):
-    __table__ = "event"
+    __tablename__ = "event"
 
     id = Column(Integer, primary_key=True, index=True)
     event_title = Column(String, nullable=False)
@@ -124,9 +143,9 @@ class Event(Base):
     event_date = Column(Date, nullable=True)
     event_time = Column(Time, nullable=True)
     mail_id = Column(String, nullable=False)
-    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("user_table.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="events")
 

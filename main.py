@@ -1,5 +1,13 @@
-from fastapi import FastAPI
-import routers.endpoints as endpoints
+from env_secrets import config
+from fastapi import FastAPI, HTTPException, status
+from routers import endpoints, auth
+from db.relational_db import Base, engine
+
 app = FastAPI()
 
 app.include_router(endpoints.router)
+app.include_router(auth.router)
+
+@app.on_event("startup")
+def startup_event():
+    Base.metadata.create_all(bind=engine)
