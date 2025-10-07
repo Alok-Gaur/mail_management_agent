@@ -23,3 +23,8 @@ client_secret_for_web_app_login_setup.json
 
 # Testing Files
 test.py
+
+
+# Migration Files
+migrations/
+alembic.ini
