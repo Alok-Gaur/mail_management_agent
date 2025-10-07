@@ -5,7 +5,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from models import User_Secret
+from models.relational_models import UserSecret
 
 SCOPES = ['https://mail.google.com/']
 TOPIC_NAME = "projects/project-use-a/topics/new_mail"
@@ -18,7 +18,7 @@ class GoogleCredentials:
         self.user_id = user_id
     
     def get_credentials(self):
-        credentials = self.db.query(User_Secret).filter(User_Secret.user_id == self.user_id).first()
+        credentials = self.db.query(UserSecret).filter(UserSecret.user_id == self.user_id).first()
         if credentials:
             if credentials.client_token:
                 creds = Credentials.from_authorized_user_info(json.loads(credentials.client_token), SCOPES)
