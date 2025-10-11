@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Mo
+from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 
 class SignUp(BaseModel):

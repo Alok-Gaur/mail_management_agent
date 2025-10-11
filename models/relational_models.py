@@ -33,7 +33,8 @@ class User(Base):
     fname = Column(String(50), nullable=True)
     lname = Column(String(50), nullable=True)
     email = Column(String(100), nullable=False, unique=True)
-    password = Column(String(255),nullable=False)
+    password = Column(String(255),nullable=True)
+    google_login = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -66,6 +67,7 @@ class UserSecret(Base):
     client_secret = Column(String, nullable=True)
     client_token = Column(String, nullable=True)
     refresh_token = Column(String, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
     revoked = Column(Boolean, default=False)
     user_id = Column(Integer, ForeignKey("user_table.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())

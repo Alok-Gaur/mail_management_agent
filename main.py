@@ -1,12 +1,13 @@
 from env_secrets import config
 from fastapi import FastAPI, HTTPException, status
-from routers import endpoints, auth
+from routers import endpoints, auth, users
 from db.relational_db import Base, engine
 
 app = FastAPI()
 
 app.include_router(endpoints.router)
 app.include_router(auth.router)
+app.include_router(users.router)
 
 @app.on_event("startup")
 def startup_event():

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, status, Request
-import utils.credentials as credentials
+import utils.google as google
 import json
 router = APIRouter(tags=['Web Hooks'])
 
@@ -14,10 +14,10 @@ async def get_mail(request:Request):
     if message_data:
         import base64
         
-        creds = credentials.get_google_credentials()
+        creds = google.get_google_credentials()
         decoded = json.loads(base64.b64decode(message_data).decode("utf-8"))
         print("New mail notification:", decoded)
         
         print("\n\nFetching message ids....")
-        message_id = credentials.mail_by_id(creds, decoded.get("historyId"))
+        message_id = google.mail_by_id(creds, decoded.get("historyId"))
     return {"status": "received"}

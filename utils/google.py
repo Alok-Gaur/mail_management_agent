@@ -6,9 +6,13 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from models.relational_models import UserSecret
+from env_secrets import config
+import requests
+from fastapi.responses import RedirectResponse
 
 SCOPES = ['https://mail.google.com/']
 TOPIC_NAME = "projects/project-use-a/topics/new_mail"
+TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 
 
@@ -19,22 +23,54 @@ class GoogleCredentials:
     
     def get_credentials(self):
         credentials = self.db.query(UserSecret).filter(UserSecret.user_id == self.user_id).first()
-        if credentials:
-            if credentials.client_token:
-                creds = Credentials.from_authorized_user_info(json.loads(credentials.client_token), SCOPES)
-                if creds and creds.expired and creds.refresh_token:
-                    creds.refresh(Request())
-                    credentials.client_token = creds.to_json()
-                    self.db.commit()
-                    return creds
-            elif credentials.client_secret:
-                flow = InstalledAppFlow.from_client_config(json.loads(credentials.client_secret), SCOPES)
-                
+        
+        # Check if credentials exist and valid
+        if credentials and credentials.client_token:
+            creds = Credentials(
+                token=credentials.client_token,
+                refresh_token=credentials.refresh_token,
+                token_uri=TOKEN_URL,
+                client_id=config.GOOGLE_CLIENT_ID,
+                client_secret=config.GOOGLE_CLIENT_SECRET,
+                scopes=SCOPES
+            )
 
-
+            # Stores token if refreshed
+            if credentials.client_token != creds.token:
+                credentials.client_token = creds.token
+                self.db.commit()
+                return creds
         
         else:
-            raise Exception("No credentials found for user")
+            email = ""
+            if credentials:
+                email = credentials.user.email
+            
+            url = f"https://accounts.google.com/o/oauth2/auth?response_type=code&\
+                        client_id={config.GOOGLE_CLIENT_ID}&\
+                        redirect_uri={config.GOOGLE_REDIRECT_URI}&\
+                        scope=openid%20profile%20email&\
+                        access_type=offline&\
+                        prompt=consent&\
+                        login_hint={email}"
+            return  RedirectResponse(url=url)
+        return creds
+            # print(response)
+            # print("No credentials found for user")
+            # return []
+            
+                # creds = Credentials.from_authorized_user_info(json.loads(credentials.client_token), SCOPES)
+                # if creds and creds.expired and creds.refresh_token:
+                #     creds.refresh(Request())
+                #     credentials.client_token = creds.to_json()
+                #     self.db.commit()
+                #     return creds
+        #     elif credentials.client_secret:
+        #         flow = InstalledAppFlow.from_client_config(json.loads(credentials.client_secret), SCOPES)
+        
+        # else:
+        #     raise Exception("No credentials found for user")
+    
     
 
 
@@ -44,17 +80,17 @@ class GoogleCredentials:
 # Get Google Api Credentials
 def get_google_credentials():
     creds = None
-    if path.exists("secrets/token.json"):
-        creds = Credentials.from_authorized_user_file("secrets/token.json", SCOPES)
+    if path.exists("env_secrets/token.json"):
+        creds = Credentials.from_authorized_user_file("env_secrets/token.json", SCOPES)
     
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file("secrets/credentials.json")
+            flow = InstalledAppFlow.from_client_secrets_file("env_secrets/credentials.json", SCOPES)
             creds = flow.run_local_server(port=0)
         
-        with open("secrets/token.json", 'w') as token:
+        with open("env_secrets/token.json", 'w') as token:
             token.write(creds.to_json())
     return creds
 
