@@ -3,8 +3,10 @@ from auth.dependency import get_current_user
 from sqlalchemy.orm import Session
 from db.relational_db import get_db
 from fastapi.responses import Response
-from utils.google import GoogleCredentials
+from utils.google import Services
+from google.oauth2.credentials import Credentials
 import json
+import utils.google as google
 
 
 from fastapi.responses import RedirectResponse
@@ -46,12 +48,13 @@ def cred(current_user: dict = Depends(get_current_user),
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     
-    google_creds = GoogleCredentials(db, user.id)
+    google_creds = Services(db, user.id)
     creds = google_creds.get_credentials()
     print(creds)
-    if isinstance(creds, RedirectResponse):
+    if isinstance(creds, Credentials):
+        print("It isinstance")
+        google.start_watch(creds)
+    else:
         return creds
-    if not creds:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Google credentials not found")
 
-    print(creds.token)
+    # print(creds.token)

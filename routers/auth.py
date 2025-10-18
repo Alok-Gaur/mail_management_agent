@@ -1,8 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse, Response, JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
-import requests
-from jose import jwt
 from env_secrets import config
 from models.relational_schema import SignUp
 from models.relational_models import User, RefreshToken, UserSecret
@@ -11,6 +9,7 @@ from sqlalchemy.orm import Session
 from db.relational_db import get_db
 from datetime import datetime, timedelta
 from auth.dependency import get_current_user
+from urllib.parse import urlencode
 
 import json
 
@@ -22,7 +21,15 @@ router = APIRouter(tags=['Authentication'])
 # Redirect to Google's OAuth 2.0 server
 @router.get("/auth/google")
 async def login_google():
-    url = f"https://accounts.google.com/o/oauth2/auth?response_type=code&client_id={config.GOOGLE_CLIENT_ID}&redirect_uri={config.GOOGLE_REDIRECT_URI}&scope=openid%20profile%20email&access_type=offline&prompt=consent"
+    params = {
+        "client_id": config.GOOGLE_CLIENT_ID,
+        "redirect_uri": config.GOOGLE_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "https://mail.google.com/ https://www.googleapis.com/auth/userinfo.email",
+        "access_type": "offline",
+        "prompt": "consent"
+    }
+    url = f"https://accounts.google.com/o/oauth2/auth?{urlencode(params)}"
     return RedirectResponse(url=url)
 
 # Handle the OAuth 2.0 server response
@@ -33,21 +40,22 @@ async def auth_google(code: str, db: Session = Depends(get_db)):
     # Authenticate with Google and get user consent for access token and refresh token
     google_auth = GoogleAuthHandler()
     token_response = google_auth.get_token(code=code)
-
+    print(token_response)
     google_access_token = token_response.get("access_token")
     google_refresh_token = token_response.get("refresh_token")
     google_expire_time = token_response.get("expires_in")
     user_info = google_auth.user_info(google_access_token)
 
     user = db.query(User).filter(User.email == user_info.get("email")).first()
+    print("The user table we get while query is ", user_info.get("email"))
 
     auth_handler = AuthHandler()
+    access_token = auth_handler.create_access_token(data={"sub": user_info.get("email")}, expires_delta=None)
+    refresh_token = auth_handler.create_refresh_token()
     if not user:    # Only for new users signup
         try:
             if user_info:
                 user_info = user_info.json()
-                access_token = auth_handler.create_access_token(data={"sub": user_info.get("email")}, expires_delta=None)
-                refresh_token = auth_handler.create_refresh_token()
                 
                 user_info = User(
                     username = user_info.get("email").split("@")[0],
@@ -78,9 +86,7 @@ async def auth_google(code: str, db: Session = Depends(get_db)):
 
     # Old user login and token update
     else:
-        access_token = auth_handler.create_access_token(data={"sub": user.email}, expires_delta=None)
-        refresh_token = auth_handler.create_refresh_token()
-
+        print("old user", refresh_token)
         new_refresh_token = RefreshToken(token=refresh_token, user_id=user.id)
         db.add(new_refresh_token)
 
@@ -88,6 +94,7 @@ async def auth_google(code: str, db: Session = Depends(get_db)):
         if user_secret:
             user_secret.client_token = google_access_token
             user_secret.refresh_token = google_refresh_token
+            user_secret.expires_at = datetime.utcnow() + timedelta(seconds=google_expire_time) if google_expire_time else None
         else:
             user_secret = UserSecret(
                 client_token = google_access_token,
@@ -97,7 +104,8 @@ async def auth_google(code: str, db: Session = Depends(get_db)):
             )
         db.add(user_secret)
         db.commit()
-        db.refresh(new_refresh_token)
+        db.refresh(user_secret)
+        print("database written", user_secret.updated_at)
 
     return JSONResponse(status_code=status.HTTP_200_OK, content={"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}) # [user_info.json(), access_token]
 
@@ -174,5 +182,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     db.add(new_refresh_token)
     db.commit()
     db.refresh(new_refresh_token)
+    print("Access Token: ", access_token)
     return JSONResponse(status_code=status.HTTP_200_OK, content={"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"})
     

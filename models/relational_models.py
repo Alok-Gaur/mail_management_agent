@@ -34,9 +34,10 @@ class User(Base):
     lname = Column(String(50), nullable=True)
     email = Column(String(100), nullable=False, unique=True)
     password = Column(String(255),nullable=True)
-    google_login = Column(Boolean, default=False)
+    google_login = Column(Boolean, default=False) # True if user initially signed up using Google OAuth
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    active = Column(Boolean, default=False) # if active == flase, user is suspended from the platform
 
     expenses = relationship("Expense", back_populates="user", cascade="all, delete-orphan")
     incomes = relationship("Income", back_populates="user", cascade="all, delete-orphan")
@@ -44,9 +45,11 @@ class User(Base):
     setting = relationship("Setting", back_populates="user", cascade="all, delete-orphan")
     user_secret = relationship("UserSecret", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    watch_history = relationship("WatchHistory", back_populates="user", cascade="all, delete-orphan")
 
 
 class RefreshToken(Base):
+    """ Store the system generated refresh tokens """
     __tablename__ = "refresh_token"
 
     id = Column(Integer, primary_key= True, index=True)
@@ -61,13 +64,16 @@ class RefreshToken(Base):
 
 
 class UserSecret(Base):
+    """ Store users gmail secrets """
     __tablename__ = "user_secret"
 
     id = Column(Integer, primary_key=True, index=True)
+    # Store and manage Google OAuth Tokens
     client_secret = Column(String, nullable=True)
     client_token = Column(String, nullable=True)
     refresh_token = Column(String, nullable=True)
     expires_at = Column(DateTime, nullable=True)
+
     revoked = Column(Boolean, default=False)
     user_id = Column(Integer, ForeignKey("user_table.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
@@ -77,6 +83,7 @@ class UserSecret(Base):
 
 
 class Setting(Base):
+    """ Store basic setting pereferences """
     __tablename__ = "setting"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -85,13 +92,25 @@ class Setting(Base):
     create_draft = Column(Boolean, default=True)
     schedule_event = Column(Boolean, default=False)
     generate_report = Column(Boolean, default=False)
+
     user_id = Column(Integer, ForeignKey("user_table.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="setting", uselist=False)
 
+class WatchHistory(Base):
+    __tablename__ = 'watch_history'
 
+    id = Column(Integer, primary_key=True, index=True)
+    history_id = Column(String, nullable=False)
+    added_by = Column(String, nullable=False)               # eg, hook or watch
+
+    user_id = Column(Integer, ForeignKey("user_table.id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="watch_history", uselist=False)
 
 class Expense(Base):
     __tablename__ = "expense"
@@ -104,6 +123,7 @@ class Expense(Base):
     gst = Column(Numeric(2, 2), nullable=True, default=0)
     gst_category = Column(Integer, nullable=True)
     total = Column(Numeric(10, 2), nullable=False, default=0)
+
     mail_id = Column(String, nullable=False)
     user_id = Column(Integer, ForeignKey("user_table.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
@@ -124,6 +144,7 @@ class Income(Base):
     gst = Column(Numeric(2, 2), nullable=True, default=0)
     gst_category = Column(Integer, nullable=True)
     total = Column(Numeric(10, 2), nullable=False, default=0)
+
     mail_id = Column(String, nullable=False)
     user_id = Column(Integer, ForeignKey("user_table.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
@@ -134,6 +155,7 @@ class Income(Base):
 
 # Maintain Google Calendar
 class Event(Base):
+    """ User event scheduled on the calender """
     __tablename__ = "event"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -144,6 +166,7 @@ class Event(Base):
     urgency = Column(Boolean, nullable=False, default=False)
     event_date = Column(Date, nullable=True)
     event_time = Column(Time, nullable=True)
+
     mail_id = Column(String, nullable=False)
     user_id = Column(Integer, ForeignKey("user_table.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
