@@ -164,10 +164,10 @@ def cred(current_user: Session = Depends(get_current_user),
     # print(creds.token)
 
 @router.get("/users/seed")
-def seed_user_data(current_user: Session = Depends(get_current_user),
+def seed_user_data(current_user:int,
                    db: Session = Depends(get_db)):
     """ Seed user data for testing purposes """
-    user = db.query(User).filter(User.id == current_user.id).first()
+    user = db.query(User).filter(User.id == current_user).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 

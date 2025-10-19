@@ -70,6 +70,8 @@ class ParseUtil:
         headers = payload.get('headers', [])
         parts = payload.get('parts', [])
 
+        print("message is ", message)
+
         def get_header(name):
             for header in headers:
                 if header['name'].lower() == name.lower():
@@ -96,7 +98,7 @@ class ParseUtil:
                 "stored_at": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
                 "sent_by": get_header('From'),
                 "sent_to": get_header('To'),
-                "title": get_header('Subject'),
+                "subject": get_header('Subject'),
                 "header": get_header('X-Header') or "",  # Custom header if any
                 "cc": get_header('Cc') or "",
                 "bcc": get_header('Bcc') or ""

@@ -3,32 +3,59 @@ import requests
 import json
 import os
 from env_secrets import config
-import chromadb
+# from smolagents import CodeAgent, LiteLLMModel
+
+from db.vector_db import get_chroma_collection
 
 
 class MailAgent:
-    def __init__(self, db_session, chroma_client, user_id:int, agent_url:str = config.AGENT_URL, agent_model:str = config.AGENT_MODEL):
+    def __init__(self, db_session, user_id:int, agent_url:str = config.AGENT_URL, agent_model:str = config.AGENT_MODEL):
         self.db_session = db_session
         self.user_id = user_id
         self.agent_url = agent_url
         self.agent_model = agent_model
-        self.chroma_client = chroma_client
     
 
-    def _agent_generate(self, prompt:str, mat_tokens:int = 512, temperature:float = 0.0) -> str:
+    async def _agent_generate(self, prompt:str, max_tokens:int = 512, temperature:float = 0.0) -> str:
+        # model = LiteLLMModel(
+        #     model_id = self.agent_model,
+        #     api_base = self.agent_url, 
+        #     max_tokens = max_tokens,
+        #     temperature = temperature
+        # )
+
+        # agent = CodeAgent(model=model, planning_interval=3)
+
+        # response = agent.run(prompt)
+        # return response
+        
+        
+        
         headers = {
             "Content-Type": "application/json",
         }
         payload = {
             "model": self.agent_model,
             "prompt": prompt,
-            "max_tokens": mat_tokens,
+            "max_tokens": max_tokens,
             "temperature": temperature,
         }
-        response = requests.post(self.agent_url, headers=headers, data=json.dumps(payload))
+        response = requests.post(f"{self.agent_url}/api/generate", headers=headers, data=json.dumps(payload), stream=True)
+        
         if response.status_code == 200:
-            result = response.json()
-            return result.get("text", "").strip()
+            output = ""
+            for line in response.iter_lines():
+                if line:
+                    try:
+                        chunk = json.loads(line.decode("utf-8"))
+                        output += chunk.get("response", "")
+                    except json.JSONDecodeError as e:
+                        print("Failed to decode chunk:", line)
+            print(output)
+            return output
+
+            # result = response.json()
+            # return result.get("text", "").strip()
         else:
             raise Exception(f"Agent API request failed with status code {response.status_code}: {response.text}")
     
@@ -36,19 +63,19 @@ class MailAgent:
     # ---------------------
     # Classification
     # ---------------------
-    def classify_email(self, subject: str, body: str, user_labels: List[str]) -> Dict:
+    async def classify_email(self, subject: str, body: str, user_labels: List[dict]) -> Dict:
         """
         Classify the email into one of user_labels.
         Returns dict: { "label": <label>, "confidence": <float>, "reason": <str> }
         """
         prompt = (
             "You are a classifier. Given an email SUBJECT and BODY, choose the best label\n"
-            f"from the user-provided labels: {user_labels}\n\n"
+            f"from the user-provided labels and their details as key value pairs: {user_labels}\n\n"
             "Output a JSON object with keys: label, confidence (0-1), reason.\n\n"
             f"SUBJECT:\n{subject}\n\nBODY:\n{body}\n\n"
             "Respond ONLY with JSON."
         )
-        raw = self._agent_generate(prompt, max_tokens=256)
+        raw = await self._agent_generate(prompt, max_tokens=256)
         # Try to parse JSON robustly
         try:
             parsed = json.loads(raw)
@@ -63,20 +90,21 @@ class MailAgent:
     # ---------------------
     # Chroma storage
     # ---------------------
-    def _get_chroma(self):
-        if chromadb is None:
-            raise RuntimeError("chromadb not available; pip install chromadb")
-        if self._chroma_client is None:
-            self._chroma_client = chromadb.Client()
-        return self._chroma_client
+    # def _get_chroma(self):
+    #     if chromadb is None:
+    #         raise RuntimeError("chromadb not available; pip install chromadb")
+    #     if self._chroma_client is None:
+    #         self._chroma_client = chromadb.Client()
+    #     return self._chroma_client
 
     def store_to_chromadb(self, email_id: str, subject: str, body: str, metadata: dict):
-        client = self._get_chroma()
-        # collection name per user
-        col_name = f"user_{self.user_id}_emails"
-        collection = client.get_or_create_collection(col_name)
+        # client = self._get_chroma()
+        # # collection name per user
+        # col_name = f"user_{self.user_id}_emails"
+        # collection = client.get_or_create_collection(col_name)
+        collection = get_chroma_collection(self.user_id)
         doc = f"Subject: {subject}\n\n{body}"
-        collection.add(
+        collection.upsert(
             documents=[doc],
             metadatas=[metadata],
             ids=[email_id]
@@ -195,45 +223,50 @@ class MailAgent:
     # ---------------------
     # Orchestration
     # ---------------------
-    def run(self, email_id: str, subject: str, body: str, user_labels: List[str], user_role: str) -> Dict:
+    async def run(self, data: dict, user_labels: List[dict], user_role: str= "owner") -> Dict:
         """
         Full pipeline: classify, store, finance, response, schedule.
         Returns a summary dict with actions taken.
         """
-        summary = {"email_id": email_id}
 
-        classification = self.classify_email(subject, body, user_labels)
+        body = data.get("document", "")
+        metadata = data.get("metadata", {})
+        subject = metadata.get("subject", "")
+        mail_id = metadata.get("mail_id", "")
+        summary = {"mail_id": mail_id}
+
+        classification = await self.classify_email(subject, body, user_labels)
         label = classification.get("label")
         summary["classification"] = classification
 
         # store raw email + metadata in chroma
-        metadata = {"user_id": self.user_id, "label": label, "classification_reason": classification.get("reason")}
+        metadata.update({"label": label, "classification_reason": classification.get("reason")})
         try:
-            self.store_to_chromadb(email_id, subject, body, metadata)
+            self.store_to_chromadb(mail_id, subject, body, metadata)
             summary["stored_chroma"] = True
         except Exception as e:
             summary["stored_chroma"] = False
             summary["chroma_error"] = str(e)
 
-        # finance
-        try:
-            fin = self.manage_finance(subject, body, label)
-            summary["finance"] = fin
-        except Exception as e:
-            summary["finance_error"] = str(e)
+        # # finance
+        # try:
+        #     fin = self.manage_finance(subject, body, label)
+        #     summary["finance"] = fin
+        # except Exception as e:
+        #     summary["finance_error"] = str(e)
 
-        # response
-        try:
-            reply = self.generate_response(subject, body, user_role, label)
-            summary["reply"] = reply
-        except Exception as e:
-            summary["reply_error"] = str(e)
+        # # response
+        # try:
+        #     reply = self.generate_response(subject, body, user_role, label)
+        #     summary["reply"] = reply
+        # except Exception as e:
+        #     summary["reply_error"] = str(e)
 
-        # schedule
-        try:
-            event = self.schedule_event(subject, body, label)
-            summary["event"] = event
-        except Exception as e:
-            summary["event_error"] = str(e)
+        # # schedule
+        # try:
+        #     event = self.schedule_event(subject, body, label)
+        #     summary["event"] = event
+        # except Exception as e:
+        #     summary["event_error"] = str(e)
 
         return summary

@@ -71,6 +71,7 @@ class Services:
                 # Stores token if refreshed
                 if credentials.client_token != creds.token:
                     credentials.client_token = creds.token
+                    self.db.add(credentials)
                     self.db.commit()
             
             return creds
@@ -118,15 +119,31 @@ class Services:
             results = services.users().history().list(
                 userId='me',
                 startHistoryId=history_id,
-                historyTypes=['messageAdded']
+                # historyTypes=['messageAdded']
             ).execute()
-            history_records = results.get('history')
+
+            history_records = results.get('history', [])
+            
+            print("All records are: ", results, history_id)
+            if not history_records:
+                new_history_id = results.get('historyId')
+                check_duplicate = self.db.query(WatchHistory).filter(WatchHistory.history_id==new_history_id).filter(WatchHistory.user_id == self.user_id).first()
+                if not check_duplicate:
+                    print("No new mail found, updating history id to ", new_history_id)
+                    add_history = WatchHistory(
+                        history_id = new_history_id,
+                        added_by = "hook",
+                        user_id = self.user_id
+                    )
+                    self.db.add(add_history)
+                    self.db.commit()
+                return []
+            
             message_ids = []
             for record in history_records:
                 for msg in record.get('messagesAdded', []):
                     message_id = msg['message']['id']
                     message_ids.append(message_id)
-                    print(get_message_details(services, message_id))
                     print("="*30, "\n\n")
                     break
             return message_ids
@@ -135,25 +152,27 @@ class Services:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     
 
-    def store_mail(self, mail_ids:List[int]) -> None:
+    def fetch_and_format_mails(self, mail_ids:List[int]) -> List[dict]:
         """
-        Fetch and store mail using mail ids
+        Fetch mail details by mail ids and format them in chromadb format.
 
         args:
             mail_ids (List[int]): List of mail ids
 
         """
         services = self.services or self.build_service("gmail", "v1")
-        for mail_id in mail_ids:
-            try:
-                message = services.users().messages().get(userId='me', id=mail_id, format='full').execute()
-                parsed_data = util.ParseUtil().gmail_messages(message)
-                parsed_data['metadata']["user_id"] = self.user_id
-                print("Storing mail data:", parsed_data)
-                break
-            except Exception as e:
-                print(6, str(e))
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        formatted_mails = []
+        try:
+            for mail_id in mail_ids:
+                    message = services.users().messages().get(userId='me', id=mail_id, format='full').execute()
+                    parsed_data = util.ParseUtil().gmail_messages(message)
+                    parsed_data['metadata']["user_id"] = self.user_id
+                    formatted_mails.append(parsed_data)
+                    print("Storing mail data:", parsed_data)
+            return formatted_mails
+        except Exception as e:
+            print(6, str(e))
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     
     def decode(self, data, encoding='UTF-8') -> str:
         """ Decode base64 encoded data"""
@@ -165,7 +184,7 @@ class Services:
     
     def manage_hook(self, history_id: int):
         """ Manage incoming webhook from google pubsub service"""
-        services = self.services or self.build_service("gmail", "v1")
+        # services = self.services or self.build_service("gmail", "v1")
 
         try:
             # maintain history id in the database
@@ -187,7 +206,7 @@ class Services:
 
         try:
             message_ids = self.get_mail_ids(history_id)
-            message = self.store_mail(message_ids)
+            message = self.fetch_and_format_mails(message_ids)
             return message
         except Exception as e:
             print('1', str(e))

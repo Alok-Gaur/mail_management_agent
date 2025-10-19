@@ -16,3 +16,8 @@ GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_TIME = int(os.getenv("ACCESS_TOKEN_EXPIRE_TIME", "600")) 
+
+
+# AI Service Secrets
+AGENT_MODEL = os.getenv("AGENT_MODEL")
+AGENT_URL = os.getenv("AGENT_URL")

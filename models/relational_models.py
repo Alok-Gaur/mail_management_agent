@@ -48,6 +48,19 @@ class User(Base):
     watch_history = relationship("WatchHistory", back_populates="user", cascade="all, delete-orphan")
     user_label = relationship("UserLabels", back_populates="user", cascade="all, delete-orphan")
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "username": self.username,
+            "fname": self.fname,
+            "lname": self.lname,
+            "email": self.email,
+            "google_login": self.google_login,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "active": self.active
+        }
+
 
 class RefreshToken(Base):
     """ Store the system generated refresh tokens """
@@ -62,6 +75,17 @@ class RefreshToken(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="refresh_tokens", uselist=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "token": self.token,
+            "expires_at": self.expires_at,
+            "revoked": self.revoked,
+            "user_id": self.user_id,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
 
 
 class UserSecret(Base):
@@ -82,6 +106,19 @@ class UserSecret(Base):
 
     user = relationship("User", back_populates="user_secret", uselist=False)
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "client_secret": self.client_secret,
+            "client_token": self.client_token,
+            "refresh_token": self.refresh_token,
+            "expires_at": self.expires_at,
+            "revoked": self.revoked,
+            "user_id": self.user_id,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
+
 
 class Setting(Base):
     """ Store basic setting pereferences """
@@ -100,6 +137,19 @@ class Setting(Base):
 
     user = relationship("User", back_populates="setting", uselist=False)
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "auto_label": self.auto_label,
+            "auto_response": self.auto_response,
+            "create_draft": self.create_draft,
+            "schedule_event": self.schedule_event,
+            "generate_report": self.generate_report,
+            "user_id": self.user_id,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
+
 class WatchHistory(Base):
     __tablename__ = 'watch_history'
 
@@ -113,11 +163,21 @@ class WatchHistory(Base):
 
     user = relationship("User", back_populates="watch_history", uselist=False)
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "history_id": self.history_id,
+            "added_by": self.added_by,
+            "user_id": self.user_id,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
+
 
 class UserLabels(Base):
     __tablename__ = "user_label"
     id = Column(Integer, primary_key=True, index=True)
-    label_name = Column(String, nullable=False, unique=True)
+    label_name = Column(String, nullable=False, unique=False)
     label_description = Column(String, nullable=True)
 
     user_id = Column(Integer, ForeignKey("user_table.id"), nullable=False)
@@ -125,6 +185,16 @@ class UserLabels(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="user_label", uselist=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "label_name": self.label_name,
+            "label_description": self.label_description,
+            "user_id": self.user_id,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
 
 
 class Expense(Base):
@@ -145,6 +215,22 @@ class Expense(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="expenses")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "type": self.type,
+            "name": self.name,
+            "qty": self.qty,
+            "price": self.price,
+            "gst": self.gst,
+            "gst_category": self.gst_category,
+            "total": self.total,
+            "mail_id": self.mail_id,
+            "user_id": self.user_id,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
 
 
 
@@ -167,6 +253,22 @@ class Income(Base):
 
     user = relationship("User", back_populates="incomes")
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "type": self.type,
+            "name": self.name,
+            "qty": self.qty,
+            "price": self.price,
+            "gst": self.gst,
+            "gst_category": self.gst_category,
+            "total": self.total,
+            "mail_id": self.mail_id,
+            "user_id": self.user_id,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
+
 
 # Maintain Google Calendar
 class Event(Base):
@@ -188,4 +290,20 @@ class Event(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="events")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "event_title": self.event_title,
+            "related": self.related,
+            "usability": self.usability,
+            "calender_set": self.calender_set,
+            "urgency": self.urgency,
+            "event_date": self.event_date,
+            "event_time": self.event_time,
+            "mail_id": self.mail_id,
+            "user_id": self.user_id,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
 

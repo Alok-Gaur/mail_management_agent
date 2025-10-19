@@ -4,8 +4,10 @@ from utils.google import Services
 from utils import util
 from db.relational_db import get_db
 from sqlalchemy.orm import Session
-from models.relational_models import User, UserSecret
+from models.relational_models import User, UserLabels
+from models.relational_schema import UserLabelSchema
 import json
+from agents.ai_agent import MailAgent
 router = APIRouter(tags=['Web Hooks'])
 
 # WebHook to get the latest mail id
@@ -27,8 +29,16 @@ async def get_mail(request:Request, db:Session = Depends(get_db)):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
         services = Services(db, user.id)
-        print("what we get is:", services.valid)
-        message = services.manage_hook(history_id)
+        formatted_mails = services.manage_hook(history_id=19247)
+
+        user_labels = await run_in_threadpool(lambda: db.query(UserLabels).filter(UserLabels.user_id == user.id).all())
+        for mail in formatted_mails:
+            user_labels = [UserLabelSchema.from_orm(label).model_dump() for label in user_labels]
+            agent = MailAgent(db, user.id)
+            output = await agent.run(mail, user_labels=user_labels)
+            print("Mail processed:", output)
+            break
+
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
         # creds = google.get_google_credentials()
         # print("\n\nFetching message ids....")

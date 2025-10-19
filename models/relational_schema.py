@@ -33,3 +33,7 @@ class UserLabelSchema(BaseModel):
     id: int
     label_name: Optional[str] = None
     label_description: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+        orm_mode = True
