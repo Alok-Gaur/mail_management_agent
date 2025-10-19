@@ -8,6 +8,7 @@ import json
 
 
 class AuthHandler:
+    """ Handles authentication tasks like password hashing and JWT token creation/verification """
     def __init__(self):
         self.secret_key = config.SECRET_KEY
         self.algorithm = config.ALGORITHM
@@ -38,6 +39,7 @@ class AuthHandler:
 
 
 class GoogleAuthHandler:
+    """ Handles Google OAuth2 authentication tasks """
     def __init__(self):
         self.client_id = config.GOOGLE_CLIENT_ID
         self.client_secret = config.GOOGLE_CLIENT_SECRET

@@ -107,7 +107,12 @@ class Services:
         return response
     
     def get_mail_ids(self, history_id: int) -> list:
-        """ Fetch mail ids from history id"""
+        """ Fetch mail ids from history id
+        Args:
+            history_id int: History Id sent by the pubsub to get the email ids
+        Returns:
+            list: List of mail ids
+        """
         services = self.services or self.build_service("gmail", "v1")
         try:
             results = services.users().history().list(

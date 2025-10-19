@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse, Response, JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from env_secrets import config
-from models.relational_schema import SignUp
+from models.relational_schema import SignUpSchema
 from models.relational_models import User, RefreshToken, UserSecret
 from auth.handlers import AuthHandler, GoogleAuthHandler
 from sqlalchemy.orm import Session
@@ -12,6 +12,7 @@ from auth.dependency import get_current_user
 from urllib.parse import urlencode
 
 import json
+from seed import seed_database
 
 
 router = APIRouter(tags=['Authentication'])
@@ -79,6 +80,7 @@ async def auth_google(code: str, db: Session = Depends(get_db)):
                 db.add(new_token)
                 db.add(user_secret)
                 db.commit()
+                seed_database(db, user_info.id) # Seed default settings for new user
         except Exception as e:
             db.rollback()
             print("Error during Google OAuth:", e)
@@ -138,7 +140,7 @@ async def refresh_token(token: str, db: Session = Depends(get_db)):
 
 # Manual authentication from user name and password
 @router.post("/auth/signup")
-async def signup(user: SignUp, db: Session = Depends(get_db)):
+async def signup(user: SignUpSchema, db: Session = Depends(get_db)):
     existing = db.query(User).filter((User.username == user.username) | (User.email == user.email)).first()
     if existing:
         if existing.email == user.email:
@@ -158,6 +160,7 @@ async def signup(user: SignUp, db: Session = Depends(get_db)):
         new_token = RefreshToken(token=refresh_token, user_id=new_user.id)
         db.add(new_token)
         db.commit()   
+        seed_database(db, new_user.id) # Seed default settings for new user
     except Exception as e:
         db.rollback()
         print("Error adding user:", e)

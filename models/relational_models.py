@@ -46,6 +46,7 @@ class User(Base):
     user_secret = relationship("UserSecret", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     watch_history = relationship("WatchHistory", back_populates="user", cascade="all, delete-orphan")
+    user_label = relationship("UserLabels", back_populates="user", cascade="all, delete-orphan")
 
 
 class RefreshToken(Base):
@@ -87,7 +88,7 @@ class Setting(Base):
     __tablename__ = "setting"
 
     id = Column(Integer, primary_key=True, index=True)
-    auto_label = Column(Integer, default=True)
+    auto_label = Column(Boolean, default=True)
     auto_response = Column(Boolean, default=False)
     create_draft = Column(Boolean, default=True)
     schedule_event = Column(Boolean, default=False)
@@ -111,6 +112,20 @@ class WatchHistory(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="watch_history", uselist=False)
+
+
+class UserLabels(Base):
+    __tablename__ = "user_label"
+    id = Column(Integer, primary_key=True, index=True)
+    label_name = Column(String, nullable=False, unique=True)
+    label_description = Column(String, nullable=True)
+
+    user_id = Column(Integer, ForeignKey("user_table.id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="user_label", uselist=False)
+
 
 class Expense(Base):
     __tablename__ = "expense"
